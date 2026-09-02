@@ -819,6 +819,17 @@ class CacheOptimizationPipeline:
             },
         )
 
+    def _copy_candidate_artifacts(self, optimum: Evaluation, target: Path) -> None:
+        for key, level in (("nsc_l1_config", "l1"), ("nsc_l2_config", "l2")):
+            source = optimum.generated_files.get(key)
+            if source and Path(source).is_file():
+                self._copy_self_contained_nsc_config(
+                    Path(source), target / ("nsc_" + level + ".cfg"), level
+                )
+        gpu_source = optimum.generated_files.get("gpgpusim_config")
+        if gpu_source and Path(gpu_source).is_file():
+            shutil.copy2(gpu_source, target / "gpgpusim.config")
+
     def _copy_optimal_configs(self) -> None:
         groups: dict[tuple[str, str], list[Evaluation]] = {}
         for evaluation in self._all_evaluations:
@@ -834,18 +845,7 @@ class CacheOptimizationPipeline:
                 continue
             target = root / technology / objective
             target.mkdir(parents=True, exist_ok=True)
-            for key, level in (
-                ("nsc_l1_config", "l1"),
-                ("nsc_l2_config", "l2"),
-            ):
-                source = optimum.generated_files.get(key)
-                if source and Path(source).is_file():
-                    self._copy_self_contained_nsc_config(
-                        Path(source), target / ("nsc_" + level + ".cfg"), level
-                    )
-            gpu_source = optimum.generated_files.get("gpgpusim_config")
-            if gpu_source and Path(gpu_source).is_file():
-                shutil.copy2(gpu_source, target / "gpgpusim.config")
+            self._copy_candidate_artifacts(optimum, target)
             _atomic_json(
                 target / "selection.json",
                 {
@@ -869,20 +869,7 @@ class CacheOptimizationPipeline:
             target.mkdir(parents=True, exist_ok=True)
             optimum = selection.evaluation
             if optimum is not None:
-                for key, level in (
-                    ("nsc_l1_config", "l1"),
-                    ("nsc_l2_config", "l2"),
-                ):
-                    source = optimum.generated_files.get(key)
-                    if source and Path(source).is_file():
-                        self._copy_self_contained_nsc_config(
-                            Path(source),
-                            target / ("nsc_" + level + ".cfg"),
-                            level,
-                        )
-                gpu_source = optimum.generated_files.get("gpgpusim_config")
-                if gpu_source and Path(gpu_source).is_file():
-                    shutil.copy2(gpu_source, target / "gpgpusim.config")
+                self._copy_candidate_artifacts(optimum, target)
             _atomic_json(
                 target / "selection.json",
                 {

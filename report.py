@@ -23,6 +23,7 @@ from .selection import (
     MAX_PERFORMANCE_ISO_ENERGY,
     MIN_ENERGY_ISO_PERFORMANCE,
     SelectionResult,
+    observed_power,
     select_power_budget_optima,
 )
 
@@ -392,8 +393,14 @@ def _grouped_pareto_fronts(
     return {key: pareto_front(values) for key, values in groups.items()}
 
 
-def _preferred_pareto_values(evaluations: list[Evaluation]) -> list[Evaluation]:
-    """Use unified Pareto candidates per technology, with legacy fallbacks."""
+def _preferred_pareto_values(
+    evaluations: list[Evaluation], *, legacy_fallback: bool = True
+) -> list[Evaluation]:
+    """Use unified Pareto candidates per technology, with legacy fallbacks.
+
+    With ``legacy_fallback`` disabled the max-performance intermediate step is
+    skipped, mirroring power selection's candidate preference.
+    """
     result: list[Evaluation] = []
     for technology in sorted({e.design.technology for e in evaluations}):
         technology_values = [
@@ -407,12 +414,15 @@ def _preferred_pareto_values(evaluations: list[Evaluation]) -> list[Evaluation]:
         if pareto_values:
             result.extend(pareto_values)
             continue
-        max_performance_values = [
-            e
-            for e in technology_values
-            if e.design.objective == MAX_PERFORMANCE
-        ]
-        result.extend(max_performance_values or technology_values)
+        if legacy_fallback:
+            max_performance_values = [
+                e
+                for e in technology_values
+                if e.design.objective == MAX_PERFORMANCE
+            ]
+            result.extend(max_performance_values or technology_values)
+            continue
+        result.extend(technology_values)
     return result
 
 
@@ -602,55 +612,6 @@ def _tradeoff_svg(evaluations: list[Evaluation]) -> str:
     return plot.finish()
 
 
-def _selection_candidate_values(evaluations: list[Evaluation]) -> list[Evaluation]:
-    """Mirror power selection's unified-Pareto preference for plotting."""
-    result: list[Evaluation] = []
-    for technology in sorted({e.design.technology for e in evaluations}):
-        technology_values = [
-            e for e in evaluations if e.design.technology == technology
-        ]
-        pareto_values = [
-            e
-            for e in technology_values
-            if e.design.objective == PARETO_FULL_CACHE
-        ]
-        result.extend(pareto_values or technology_values)
-    return result
-
-
-def _observed_power_for_budget(
-    evaluation: Evaluation,
-    budget: dict[str, Any],
-    scope: str,
-) -> float:
-    if budget.get("type") == "relative":
-        if scope == "suite":
-            return float(evaluation.power_score)
-        app_values = [
-            float(app.power_ratio)
-            for app in evaluation.app_results
-            if math.isfinite(app.power_ratio)
-        ]
-        if app_values:
-            return max(app_values)
-        if math.isfinite(evaluation.worst_power_ratio):
-            return float(evaluation.worst_power_ratio)
-        return float(evaluation.power_score)
-
-    if scope == "suite" and math.isfinite(evaluation.power_mw_score):
-        return float(evaluation.power_mw_score)
-    app_values = [
-        float(app.cache_power_mw)
-        for app in evaluation.app_results
-        if math.isfinite(app.cache_power_mw)
-    ]
-    if app_values:
-        return max(app_values)
-    if math.isfinite(evaluation.max_power_mw):
-        return float(evaluation.max_power_mw)
-    return float(evaluation.power_mw_score)
-
-
 def _power_constrained_svg(
     evaluations: list[Evaluation],
     selections: list[SelectionResult],
@@ -669,7 +630,7 @@ def _power_constrained_svg(
     height = 85 + panel_height * len(power_constraints) + 55
     plot = _Plot(1050, height, "Power-constrained Pareto selections")
     scope = str(constraints.get("constraint_scope", "per_application"))
-    candidates = _selection_candidate_values(evaluations)
+    candidates = _preferred_pareto_values(evaluations, legacy_fallback=False)
     technologies = sorted({e.design.technology for e in candidates})
     selector_markers = {
         MIN_ENERGY_ISO_PERFORMANCE: "E",
@@ -681,7 +642,7 @@ def _power_constrained_svg(
         budget_type = str(budget.get("type"))
         limit = float(budget.get("limit", math.nan))
         observed = [
-            (value, _observed_power_for_budget(value, budget, scope))
+            (value, observed_power(value, budget, scope))
             for value in candidates
         ]
         all_points = [

@@ -147,7 +147,7 @@ def select_power_budget_optima(
                     ranking=lambda candidate: (
                         candidate.energy_score,
                         -candidate.performance_score,
-                        _observed_power(candidate, budget, scope),
+                        observed_power(candidate, budget, scope),
                         candidate.area_ratio,
                         candidate.design.id,
                     ),
@@ -179,7 +179,7 @@ def select_power_budget_optima(
                     ranking=lambda candidate: (
                         -candidate.performance_score,
                         candidate.energy_score,
-                        _observed_power(candidate, budget, scope),
+                        observed_power(candidate, budget, scope),
                         candidate.area_ratio,
                         candidate.design.id,
                     ),
@@ -288,11 +288,11 @@ def _passes_power(
     budget: Mapping[str, Any],
     scope: str,
 ) -> bool:
-    observed = _observed_power(evaluation, budget, scope)
+    observed = observed_power(evaluation, budget, scope)
     return math.isfinite(observed) and observed <= float(budget["limit"]) + _TOLERANCE
 
 
-def _observed_power(
+def observed_power(
     evaluation: Evaluation,
     budget: Mapping[str, Any],
     scope: str,
@@ -358,8 +358,8 @@ def _dominates(
     budget: Mapping[str, Any],
     scope: str,
 ) -> bool:
-    left_power = _observed_power(left, budget, scope)
-    right_power = _observed_power(right, budget, scope)
+    left_power = observed_power(left, budget, scope)
+    right_power = observed_power(right, budget, scope)
     no_worse = (
         left.area_ratio <= right.area_ratio + _TOLERANCE
         and left.energy_score <= right.energy_score + _TOLERANCE
@@ -395,7 +395,7 @@ def _power_aware_pareto(
             candidate.area_ratio,
             candidate.energy_score,
             -candidate.performance_score,
-            _observed_power(candidate, budget, scope),
+            observed_power(candidate, budget, scope),
             candidate.design.id,
         ),
     )
@@ -430,7 +430,7 @@ def _knee_ranking(
         distance = math.hypot(normalized_energy, normalized_performance_loss)
         return (
             distance,
-            _observed_power(candidate, budget, scope),
+            observed_power(candidate, budget, scope),
             candidate.area_ratio,
             candidate.energy_score,
             -candidate.performance_score,
@@ -473,7 +473,7 @@ def _make_selection(
         status="FEASIBLE",
         evaluation=selected,
         reasons=[],
-        observed_power=_observed_power(selected, budget, scope),
+        observed_power=observed_power(selected, budget, scope),
         observed_unit=observed_unit,
     )
 

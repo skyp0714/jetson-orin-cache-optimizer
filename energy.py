@@ -48,16 +48,7 @@ def compute_level_energy(
     leakage_power_mw = instances * float(ppa.leakage_power_mw)
     leakage_nj = leakage_power_mw * runtime_s * 1e6
 
-    refresh_power_mw = 0.0
-    refresh_energy_per_bank_nj = getattr(ppa, "refresh_energy_nj", None)
-    reported_refresh_power_mw = getattr(ppa, "refresh_power_mw", None)
-    if retention_time_us is not None and refresh_energy_per_bank_nj is not None:
-        # nJ / us is numerically mW. NS-Cache labels refresh energy per bank.
-        refresh_power_mw = (
-            float(refresh_energy_per_bank_nj) / retention_time_us * bank_count * instances
-        )
-    elif reported_refresh_power_mw is not None:
-        refresh_power_mw = float(reported_refresh_power_mw) * bank_count * instances
+    refresh_power_mw = _refresh_power(ppa, retention_time_us, bank_count, instances)
     refresh_nj = refresh_power_mw * runtime_s * 1e6
     return LevelEnergy(dynamic_nj, leakage_nj, refresh_nj)
 
@@ -264,6 +255,7 @@ def build_evaluation(
 
 
 def _refresh_power(ppa: Any, retention_us: float | None, banks: int, instances: int) -> float:
+    # nJ / us is numerically mW. NS-Cache labels refresh energy per bank.
     energy = getattr(ppa, "refresh_energy_nj", None)
     if retention_us is not None and energy is not None:
         return float(energy) / retention_us * banks * instances

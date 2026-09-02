@@ -22,8 +22,7 @@ OBJECTIVES = (
     "pareto_full_cache",
 )
 
-_SAFE_TECHNOLOGY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
-_SAFE_POWER_CONSTRAINT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+_SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 
 
 DEFAULTS: dict[str, Any] = {
@@ -135,7 +134,7 @@ def _normalize_power_constraints(value: Any) -> list[dict[str, Any]]:
             )
 
         name = entry.get("name")
-        if not isinstance(name, str) or not _SAFE_POWER_CONSTRAINT_RE.fullmatch(name):
+        if not isinstance(name, str) or not _SAFE_NAME_RE.fullmatch(name):
             raise ConfigError(
                 f"{label}.name must use only letters, digits, '.', '_' or '-' "
                 "and cannot start with punctuation"
@@ -218,7 +217,7 @@ def load_config(path: Path) -> dict[str, Any]:
     if not isinstance(technologies, dict) or not technologies:
         raise ConfigError("technologies must be a non-empty object")
     for name, spec in technologies.items():
-        if not isinstance(name, str) or not _SAFE_TECHNOLOGY_RE.fullmatch(name):
+        if not isinstance(name, str) or not _SAFE_NAME_RE.fullmatch(name):
             raise ConfigError(
                 "Technology names must use only letters, digits, '.', '_' or '-' "
                 f"and cannot start with punctuation: {name!r}"
