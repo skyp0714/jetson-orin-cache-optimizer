@@ -58,7 +58,7 @@ make -C src -j2
 기본 예시는 다음 위치를 전제로 한다.
 
 ```text
-/home/hnpark2/
+~/  (예시 기준 home directory)
 ├── NSCache_UIUC_Collaboration/
 │   ├── nsc
 │   ├── config_uiuc/
@@ -77,7 +77,7 @@ make -C src -j2
 예시를 복사해 같은 디렉터리에 local 설정을 만들면 상대 경로를 그대로 유지할 수 있다.
 
 ```bash
-cd /home/hnpark2/NSCache_UIUC_Collaboration
+cd ~/NSCache_UIUC_Collaboration
 cp cache_optimizer/configs/jetson_orin.example.json \
    cache_optimizer/configs/jetson_orin.local.json
 ```
@@ -163,7 +163,7 @@ Accel-Sim cache access counter는 기본적으로 모든 L1/L2 instance를 합�
 먼저 경로, trace, Orin/NS-Cache baseline mapping, CUDA 및 GPGPU-Sim library를 검증한다. 이 단계에서는 NS-Cache나 Accel-Sim simulation을 실행하지 않는다.
 
 ```bash
-cd /home/hnpark2/NSCache_UIUC_Collaboration
+cd ~/NSCache_UIUC_Collaboration
 python3 -m cache_optimizer \
   --config cache_optimizer/configs/jetson_orin.local.json \
   --validate-only
@@ -233,7 +233,7 @@ python3 -m cache_optimizer \
 
 ```bash
 cd results/cache_optimizer_jetson_orin/optimal_configs/gain_cell/power_constraints/sram_1x/min_energy_iso_performance
-/home/hnpark2/NSCache_UIUC_Collaboration/nsc nsc_l2.cfg
+~/NSCache_UIUC_Collaboration/nsc nsc_l2.cfg
 ```
 
 ## 성능, 에너지, 면적 정의
