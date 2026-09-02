@@ -41,7 +41,7 @@ Pareto dominance는 total area, normalized cache energy, normalized average cach
 
 필요한 항목은 다음과 같다.
 
-- Python 3.8 이상. 실행과 SVG/CSV 생성은 Python 표준 라이브러리만 사용한다. `pytest`는 테스트를 실행할 때만 필요하다.
+- Python 3.8 이상. 실행과 SVG/CSV 생성은 Python 표준 라이브러리만 사용한다. `pytest`는 테스트를 실행할 때만 필요하며, repository root에서 `pytest`를 실행하면 된다(경로 설정은 root의 `pyproject.toml`이 담당한다).
 - 빌드된 NS-Cache 실행 파일과 SRAM/gain-cell/STT-MRAM `.cfg`/`.cell` 입력.
 - 빌드된 trace-driven Accel-Sim 실행 파일, Jetson Orin `gpgpusim.config`, `trace.config`.
 - Accel-Sim이 사용할 CUDA 설치. 현재 환경 생성기는 기본적으로 `/usr/local/cuda`를 사용한다.
