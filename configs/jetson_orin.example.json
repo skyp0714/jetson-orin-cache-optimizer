@@ -1,0 +1,89 @@
+{
+  "paths": {
+    "nscache_root": "../..",
+    "nsc_binary": "../../nsc",
+    "accelsim_root": "../../../accel-sim-framework",
+    "accelsim_binary": "../../../accel-sim-framework/gpu-simulator/bin/release/accel-sim.out",
+    "accelsim_config": "../../../accel-sim-framework/gpu-simulator/gpgpu-sim/configs/tested-cfgs/SM87_ORIN/gpgpusim.config",
+    "trace_config": "../../../accel-sim-framework/gpu-simulator/configs/tested-cfgs/SM87_ORIN/trace.config",
+    "output_dir": "../../results/cache_optimizer_jetson_orin"
+  },
+  "baseline": {
+    "l1_cfg": "../../config_uiuc/jetson-gpu-l1_sram_n7.cfg",
+    "l2_cfg": "../../config_uiuc/jetson-gpu-l2_sram_n7.cfg",
+    "l1_instances": 16,
+    "l2_instances": 1,
+    "l1_banks_per_instance": 1,
+    "l2_banks_per_instance": 1,
+    "l1_counts_scope": "all_instances",
+    "l2_counts_scope": "all_instances"
+  },
+  "technologies": {
+    "gain_cell": {
+      "l1_template": "../../config_uiuc/jetson-gpu-l1_gc_n7.cfg",
+      "l2_template": "../../config_uiuc/jetson-gpu-l2_gc_n7.cfg",
+      "cell_template": "../../config_uiuc/gcDRAM_cell_7nm.cell",
+      "retention_time_us": 315000,
+      "retention_reference_temperature_k": 300,
+      "model_note": "315000 us at 300 K is the existing Jetson-suite assumption; replace it with measured/calibrated retention when available."
+    },
+    "stt_mram": {
+      "l1_template": "../../config_uiuc/jetson-gpu-l1_stmram_n7.cfg",
+      "l2_template": "../../config_uiuc/jetson-gpu-l2_stmram_n7.cfg",
+      "retention_time_us": null,
+      "model_note": "IBM 14 nm STT-MRAM cell parameters are evaluated inside the current N7 cache wrapper and are not an independently calibrated N7 STT macro."
+    }
+  },
+  "application_trace_globs": [
+    "../../../accel-sim-framework/hw_run/**/traces/kernelslist.g"
+  ],
+  "applications": [],
+  "search_space": {
+    "l1_capacity_kib": [256, 512, 1024],
+    "l1_associativity": [2, 4, 8],
+    "l2_capacity_kib": [1024, 2048, 4096, 8192, 16384],
+    "l2_associativity": [8, 16, 32]
+  },
+  "objectives": [
+    "pareto_full_cache"
+  ],
+  "power_constraints": [
+    {
+      "name": "sram_1x",
+      "max_power_ratio": 1.0
+    },
+    {
+      "name": "sram_1p5x",
+      "max_power_ratio": 1.5
+    },
+    {
+      "name": "absolute_300mw",
+      "max_power_mw": 300
+    },
+    {
+      "name": "absolute_450mw",
+      "max_power_mw": 450
+    }
+  ],
+  "constraints": {
+    "max_area_ratio": 1.0,
+    "runtime_tolerance": 0.02,
+    "energy_tolerance": 0.0,
+    "constraint_scope": "per_application"
+  },
+  "optimizer": {
+    "max_evaluations_per_objective": 20,
+    "max_iterations": 10,
+    "beam_width": 4,
+    "max_workers": 1,
+    "nsc_timeout_s": 1200,
+    "sim_timeout_s": 86400,
+    "resume": true,
+    "saturation_area_ratio_max": 1.5
+  },
+  "latency_mapping": {
+    "mode": "relative_delta",
+    "rounding": "ceil_away_from_zero",
+    "minimum_cycles": 1
+  }
+}
