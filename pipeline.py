@@ -87,7 +87,11 @@ def _write_if_changed(path: Path, text: str) -> None:
             return
     except OSError:
         pass
-    path.write_text(text, encoding="utf-8")
+    # Write atomically: the sha256 of some of these files feeds cache keys,
+    # so a torn write must never be observable.
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(text, encoding="utf-8")
+    os.replace(str(temporary), str(path))
 
 
 def _nscache_config_hashes(config_path: Path, nscache_root: Path) -> dict[str, str]:

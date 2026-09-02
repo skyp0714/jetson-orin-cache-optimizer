@@ -912,7 +912,7 @@ def _power_selection_rows_markdown(
                     _fmt(value.area_ratio),
                     _fmt(value.performance_score),
                     _fmt(value.energy_score),
-                    _fmt(selection.observed_power or math.nan),
+                    _fmt(math.nan if selection.observed_power is None else selection.observed_power),
                     "—",
                 )
             )

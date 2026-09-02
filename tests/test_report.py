@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import csv
 import re
 from pathlib import Path
@@ -16,7 +18,7 @@ def evaluation(
     *,
     technology: str = "gain_cell",
     objective: str = MAX_PERFORMANCE,
-    power: float = None,
+    power: float | None = None,
 ) -> Evaluation:
     design = CacheDesign(
         technology,

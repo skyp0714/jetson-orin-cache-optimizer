@@ -9,6 +9,7 @@ from collections.abc import Iterable
 from typing import Any, Callable, List
 
 from .models import CacheDesign, Evaluation
+from .selection import select_power_budget_optima
 
 
 MIN_ENERGY = "min_energy_runtime_bound"
@@ -269,8 +270,6 @@ class AdaptiveParetoSearch:
             # A geometric-mean power frontier can hide a point needed by a
             # per-application or absolute-mW cap.  Preserve every currently
             # selected budget operating point as a neighbor-expansion seed.
-            from .selection import select_power_budget_optima
-
             for choice in select_power_budget_optima(
                 evaluations,
                 self.power_constraints,
