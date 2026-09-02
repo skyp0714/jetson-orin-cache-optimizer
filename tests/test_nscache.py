@@ -95,7 +95,6 @@ class SummaryParserTests(unittest.TestCase):
         self.assertAlmostEqual(ppa.refresh_energy_nj, 0.4)
         self.assertAlmostEqual(ppa.refresh_power_mw, 0.00027487)
         self.assertAlmostEqual(ppa.availability_percent, 99.5)
-        self.assertEqual(ppa.refresh_energy_nj_per_bank, ppa.refresh_energy_nj)
 
     def test_uses_last_summary_and_rejects_missing_required_metric(self):
         invalid = SRAM_SUMMARY.replace(" - Cache Write Dynamic Energy = 0.019nJ per access\n", "")

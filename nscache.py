@@ -49,9 +49,8 @@ class PPACacheError(NSCacheError):
 class CachePPA:
     """Technology-level cache PPA parsed from an NS-Cache summary.
 
-    NS-Cache labels refresh quantities as ``per bank``.  The canonical field
-    names stay compact, while the ``*_per_bank`` properties below make that
-    output convention explicit to callers that need it.
+    NS-Cache labels refresh quantities as ``per bank``; the canonical
+    ``refresh_*`` fields keep compact names but follow that convention.
     """
 
     area_mm2: float
@@ -100,22 +99,6 @@ class CachePPA:
         if self.availability_percent is not None and self.availability_percent > 100:
             raise ValueError("availability_percent must be between 0 and 100")
 
-    @property
-    def refresh_latency_us_per_bank(self) -> Optional[float]:
-        return self.refresh_latency_us
-
-    @property
-    def refresh_energy_nj_per_bank(self) -> Optional[float]:
-        return self.refresh_energy_nj
-
-    @property
-    def refresh_dynamic_energy_nj_per_bank(self) -> Optional[float]:
-        return self.refresh_energy_nj
-
-    @property
-    def refresh_power_mw_per_bank(self) -> Optional[float]:
-        return self.refresh_power_mw
-
     def to_dict(self) -> Dict[str, Optional[float]]:
         return dataclasses.asdict(self)
 
@@ -150,15 +133,6 @@ class CacheConfig:
             raise ValueError("associativity must be > 0")
         if self.force_bank_count is not None and self.force_bank_count <= 0:
             raise ValueError("force_bank_count must be > 0")
-
-    @property
-    def bank_count(self) -> Optional[int]:
-        """Backward-compatible alias for the ForceBankA subarray product."""
-        return self.force_bank_count
-
-    @property
-    def forced_subarray_count(self) -> Optional[int]:
-        return self.force_bank_count
 
 
 _NUMBER = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
@@ -325,10 +299,6 @@ def parse_summary(output: str) -> CachePPA:
         ),
         availability_percent=_availability(block),
     )
-
-
-# Descriptive alias used by callers that parse more than one simulator format.
-parse_cache_ppa = parse_summary
 
 
 _CAPACITY_RE = re.compile(
@@ -529,8 +499,6 @@ def render_config(
     return patch_config_text(text, capacity_kib=capacity_kib, associativity=associativity)
 
 
-read_cache_config = read_config
-patch_cache_config = patch_config_text
 
 
 def _working_directory(cwd: Optional[PathLike]) -> Path:
@@ -805,7 +773,6 @@ class JsonPPACache:
                     pass
 
 
-PPACache = JsonPPACache
 
 
 def cached_run_nscache(
@@ -835,19 +802,15 @@ __all__ = [
     "NSCacheError",
     "NSCacheParseError",
     "NSCacheRunError",
-    "PPACache",
     "PPACacheError",
     "build_ppa_cache_key",
     "cached_run_nscache",
     "derive_force_bank_count",
-    "parse_cache_ppa",
     "parse_config_text",
     "parse_summary",
-    "patch_cache_config",
     "patch_cell_text",
     "patch_config_text",
     "patch_memory_cell_input",
-    "read_cache_config",
     "read_config",
     "render_config",
     "run_nscache",

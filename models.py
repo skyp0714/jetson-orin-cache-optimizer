@@ -104,20 +104,6 @@ class Evaluation:
     worst_power_ratio: float = math.nan
     max_power_mw: float = math.nan
 
-    @property
-    def objective_value(self) -> float:
-        if self.design.objective == "min_energy_runtime_bound":
-            return self.energy_score
-        if self.design.objective == "max_performance_energy_bound":
-            return self.performance_score
-        if self.design.objective == "pareto_full_cache":
-            # A Pareto search has no single scalar objective.  This value is
-            # only a deterministic convenience for callers which require one.
-            return self.performance_score / max(
-                self.energy_score * self.power_score * self.area_ratio, 1e-30
-            )
-        raise ValueError(f"Unknown objective: {self.design.objective}")
-
 
 def weighted_geomean(values: Iterable[float], weights: Iterable[float] | None = None) -> float:
     values_list = list(values)

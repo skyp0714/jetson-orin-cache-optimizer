@@ -402,9 +402,6 @@ def read_config(path: PathLike) -> OrinConfig:
     return parse_config_text(text)
 
 
-parse_orin_config = parse_config_text
-read_orin_config = read_config
-
 
 def _positive_architecture_int(value: int, label: str) -> int:
     if isinstance(value, bool) or int(value) != value or int(value) <= 0:
@@ -523,8 +520,6 @@ def map_relative_delta_latency(
     rounded_delta = math.ceil(delta_cycles) if delta_cycles >= 0 else math.floor(delta_cycles)
     return max(minimum_cycles, baseline_cycles + rounded_delta)
 
-
-relative_delta_latency_cycles = map_relative_delta_latency
 
 
 def _latency_pair(
@@ -649,8 +644,6 @@ def generate_candidate_config(
     return config.patched(updates)
 
 
-render_candidate_config = generate_candidate_config
-
 
 _NUMBER = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
 _CYCLE_RE = re.compile(r"^\s*gpu_tot_sim_cycle\s*=\s*(\d+)\s*$", re.MULTILINE)
@@ -663,7 +656,6 @@ _BREAKDOWN_RE = re.compile(
 )
 
 _EXIT_MARKER = "GPGPU-Sim: *** exit detected ***"
-_THREAD_EXIT_MARKER = "GPGPU-Sim: *** simulation thread exiting ***"
 _LIMIT_PATTERNS = (
     re.compile(r"break due to reaching the maximum cycles", re.IGNORECASE),
     re.compile(r"Maximum cycle, instruction, or CTA count hit", re.IGNORECASE),
@@ -690,7 +682,6 @@ class AccelSimOutput:
     ipc: float | None
     accesses: AccessCounts
     completed: bool
-    simulation_thread_exited: bool
     reached_limit: bool
     error_messages: tuple[str, ...]
     missing_metrics: tuple[str, ...]
@@ -860,14 +851,11 @@ def parse_output(text: str) -> AccelSimOutput:
         ipc=ipc,
         accesses=accesses,
         completed=_EXIT_MARKER in text,
-        simulation_thread_exited=_THREAD_EXIT_MARKER in text,
         reached_limit=any(pattern.search(text) for pattern in _LIMIT_PATTERNS),
         error_messages=_diagnostic_lines(text),
         missing_metrics=tuple(missing),
     )
 
-
-parse_accelsim_output = parse_output
 
 
 @dataclasses.dataclass(frozen=True)
@@ -883,10 +871,6 @@ class AccelSimRunResult:
     @property
     def success(self) -> bool:
         return not self.timed_out and self.returncode == 0 and self.output.success
-
-    @property
-    def stats(self) -> AccelSimOutput:
-        return self.output
 
     def raise_for_status(self) -> "AccelSimRunResult":
         if self.success:
@@ -1128,7 +1112,6 @@ __all__ = [
     "generate_candidate_config",
     "map_relative_cache_geometry",
     "map_relative_delta_latency",
-    "parse_accelsim_output",
     "parse_cache_string",
     "parse_clock_domains",
     "parse_config_text",
@@ -1136,6 +1119,5 @@ __all__ = [
     "parse_output",
     "patch_directives",
     "read_config",
-    "render_candidate_config",
     "run_accelsim",
 ]

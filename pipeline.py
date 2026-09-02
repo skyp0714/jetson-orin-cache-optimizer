@@ -23,13 +23,7 @@ from .energy import build_evaluation, build_raw_app_result
 from .models import AppResult, CacheDesign, Evaluation, to_jsonable
 from .report import write_reports
 from .selection import select_power_budget_optima
-from .search import (
-    AdaptiveParetoSearch,
-    DiscreteSpace,
-    MAX_PERFORMANCE,
-    MIN_ENERGY,
-    select_optimum,
-)
+from .search import AdaptiveParetoSearch, DiscreteSpace, select_optimum
 
 
 class PipelineError(RuntimeError):
