@@ -1,7 +1,7 @@
 {
   "paths": {
-    "nscache_root": "../..",
-    "nsc_binary": "../../nsc",
+    "nscache_root": "../../../NSCache_UIUC_Collaboration",
+    "nsc_binary": "../../../NSCache_UIUC_Collaboration/nsc",
     "accelsim_root": "../../../accel-sim-framework",
     "accelsim_binary": "../../../accel-sim-framework/gpu-simulator/bin/release/accel-sim.out",
     "accelsim_config": "../../../accel-sim-framework/gpu-simulator/gpgpu-sim/configs/tested-cfgs/SM87_ORIN/gpgpusim.config",
@@ -9,8 +9,8 @@
     "output_dir": "../../results/cache_optimizer_jetson_orin"
   },
   "baseline": {
-    "l1_cfg": "../../config_uiuc/jetson-gpu-l1_sram_n7.cfg",
-    "l2_cfg": "../../config_uiuc/jetson-gpu-l2_sram_n7.cfg",
+    "l1_cfg": "../../../NSCache_UIUC_Collaboration/config_uiuc/jetson-gpu-l1_sram_n7.cfg",
+    "l2_cfg": "../../../NSCache_UIUC_Collaboration/config_uiuc/jetson-gpu-l2_sram_n7.cfg",
     "l1_instances": 16,
     "l2_instances": 1,
     "l1_banks_per_instance": 1,
@@ -20,16 +20,16 @@
   },
   "technologies": {
     "gain_cell": {
-      "l1_template": "../../config_uiuc/jetson-gpu-l1_gc_n7.cfg",
-      "l2_template": "../../config_uiuc/jetson-gpu-l2_gc_n7.cfg",
-      "cell_template": "../../config_uiuc/gcDRAM_cell_7nm.cell",
+      "l1_template": "../../../NSCache_UIUC_Collaboration/config_uiuc/jetson-gpu-l1_gc_n7.cfg",
+      "l2_template": "../../../NSCache_UIUC_Collaboration/config_uiuc/jetson-gpu-l2_gc_n7.cfg",
+      "cell_template": "../../../NSCache_UIUC_Collaboration/config_uiuc/gcDRAM_cell_7nm.cell",
       "retention_time_us": 315000,
       "retention_reference_temperature_k": 300,
       "model_note": "315000 us at 300 K is the existing Jetson-suite assumption; replace it with measured/calibrated retention when available."
     },
     "stt_mram": {
-      "l1_template": "../../config_uiuc/jetson-gpu-l1_stmram_n7.cfg",
-      "l2_template": "../../config_uiuc/jetson-gpu-l2_stmram_n7.cfg",
+      "l1_template": "../../../NSCache_UIUC_Collaboration/config_uiuc/jetson-gpu-l1_stmram_n7.cfg",
+      "l2_template": "../../../NSCache_UIUC_Collaboration/config_uiuc/jetson-gpu-l2_stmram_n7.cfg",
       "retention_time_us": null,
       "model_note": "IBM 14 nm STT-MRAM cell parameters are evaluated inside the current N7 cache wrapper and are not an independently calibrated N7 STT macro."
     }

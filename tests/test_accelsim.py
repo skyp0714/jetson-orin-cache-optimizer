@@ -202,28 +202,6 @@ class OutputParserTests(unittest.TestCase):
         with self.assertRaisesRegex(Exception, "missing metrics"):
             parsed.require_success()
 
-    @unittest.skipUnless(
-        Path("/home/hnpark2/OpenVLA Kernel 24.txt").is_file(),
-        "external OpenVLA fixture is not available",
-    )
-    def test_real_openvla_kernel_24_fixture(self):
-        text = Path("/home/hnpark2/OpenVLA Kernel 24.txt").read_text(
-            encoding="utf-8", errors="replace"
-        )
-        parsed = parse_output(text)
-
-        self.assertTrue(parsed.success)
-        self.assertEqual(parsed.cycles, 6_695_847)
-        self.assertEqual(parsed.instructions, 265_944_576)
-        self.assertAlmostEqual(parsed.ipc, 39.7178)
-        self.assertEqual(parsed.accesses.l1_read_hit, 5_437)
-        self.assertEqual(parsed.accesses.l1_read_miss, 1_313_705)
-        self.assertEqual(parsed.accesses.l1_write, 66_816)
-        self.assertEqual(parsed.accesses.l2_read_hit, 232_197)
-        self.assertEqual(parsed.accesses.l2_read_miss, 1_086_398)
-        self.assertEqual(parsed.accesses.l2_write, 66_816)
-
-
 class ConfigTests(unittest.TestCase):
     def test_parses_cache_strings_clocks_and_instance_counts(self):
         config = parse_config_text(ORIN_CONFIG)
@@ -411,23 +389,24 @@ class RunnerTests(unittest.TestCase):
                     check=False,
                 )
 
-    @unittest.skipUnless(
-        Path("/home/hnpark2/accel-sim-framework/gpu-simulator/gpgpu-sim").is_dir(),
-        "Accel-Sim checkout is not available",
-    )
     def test_build_environment_selects_custom_gpgpusim_lib(self):
-        env = build_accelsim_environment(
-            "/home/hnpark2/accel-sim-framework",
-            base_environment={"PATH": "/usr/bin"},
-        )
-        self.assertEqual(
-            env["GPGPUSIM_ROOT"],
-            "/home/hnpark2/accel-sim-framework/gpu-simulator/gpgpu-sim",
-        )
-        self.assertTrue(env["LD_LIBRARY_PATH"].endswith("/release"))
-        self.assertTrue(
-            env["PATH"].startswith(str(Path("/usr/local/cuda").resolve() / "bin"))
-        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            gpgpusim_root = root / "accel-sim" / "gpu-simulator" / "gpgpu-sim"
+            release = gpgpusim_root / "lib" / "gcc-9" / "cuda-11.0" / "release"
+            cuda_root = root / "cuda"
+            release.mkdir(parents=True)
+            (cuda_root / "bin").mkdir(parents=True)
+
+            env = build_accelsim_environment(
+                root / "accel-sim",
+                cuda_install_path=cuda_root,
+                base_environment={"PATH": "/usr/bin"},
+            )
+
+            self.assertEqual(env["GPGPUSIM_ROOT"], str(gpgpusim_root.resolve()))
+            self.assertEqual(env["LD_LIBRARY_PATH"], str(release.resolve()))
+            self.assertTrue(env["PATH"].startswith(str(cuda_root.resolve() / "bin")))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
-# Jetson Orin NS-Cache + Accel-Sim 최적화 파이프라인
+# Jetson Orin Cache Optimizer
 
-이 디렉터리는 NS-Cache의 cache-array PPA와 Jetson Orin용 Accel-Sim trace simulation을 연결한다. SRAM L1/L2 기준 설정은 변경하지 않고, gain cell과 STT-MRAM 후보의 capacity/associativity를 반복 탐색한 뒤 4차원 Pareto frontier와 power budget별 최적점을 표와 SVG/HTML 리포트로 자동 생성한다.
+NS-Cache의 cache-array PPA와 Jetson Orin용 Accel-Sim trace simulation을 연결하는 독립 Python 패키지다. SRAM L1/L2 기준 설정은 변경하지 않고, gain cell과 STT-MRAM 후보의 capacity/associativity를 반복 탐색한 뒤 4차원 Pareto frontier와 power budget별 최적점을 표와 SVG/HTML 리포트로 자동 생성한다.
 
 > 성능 지표는 trace에 포함된 모든 GPU kernel의 `gpu_tot_sim_cycle`이다. CPU 전처리·후처리, host/device transfer, 애플리케이션 wall-clock time까지 포함한 실제 system end-to-end latency는 아니다. 자세한 범위는 [모델 범위와 제한](#모델-범위와-제한)을 참고한다.
 
@@ -41,7 +41,7 @@ Pareto dominance는 total area, normalized cache energy, normalized average cach
 
 필요한 항목은 다음과 같다.
 
-- Python 3.8 이상. 실행과 SVG/CSV 생성은 Python 표준 라이브러리만 사용한다. `pytest`는 테스트를 실행할 때만 필요하며, repository root에서 `pytest`를 실행하면 된다(경로 설정은 root의 `pyproject.toml`이 담당한다).
+- Python 3.8 이상. 실행과 SVG/CSV 생성은 Python 표준 라이브러리만 사용한다. `pytest`는 테스트 실행에만 필요하다.
 - 빌드된 NS-Cache 실행 파일과 SRAM/gain-cell/STT-MRAM `.cfg`/`.cell` 입력.
 - 빌드된 trace-driven Accel-Sim 실행 파일, Jetson Orin `gpgpusim.config`, `trace.config`.
 - Accel-Sim이 사용할 CUDA 설치. 현재 환경 생성기는 기본적으로 `/usr/local/cuda`를 사용한다.
@@ -49,7 +49,7 @@ Pareto dominance는 total area, normalized cache energy, normalized average cach
 - 각 application의 `kernelslist.g`와 그 목록이 가리키는 `.traceg` 또는 `.traceg.xz` 파일.
 - 후보 수 × application 수만큼의 simulation 시간과 저장 공간. 한 후보도 수 분에서 수 시간 이상 걸릴 수 있다.
 
-NS-Cache가 아직 빌드되지 않았다면 repository root에서 다음을 실행한다.
+NS-Cache가 아직 빌드되지 않았다면 NS-Cache repository root에서 다음을 실행한다.
 
 ```bash
 make -C src -j2
@@ -59,10 +59,11 @@ make -C src -j2
 
 ```text
 ~/  (예시 기준 home directory)
+├── jetson-orin-cache-optimizer/
+│   └── cache_optimizer/
 ├── NSCache_UIUC_Collaboration/
 │   ├── nsc
-│   ├── config_uiuc/
-│   └── cache_optimizer/
+│   └── config_uiuc/
 └── accel-sim-framework/
     ├── gpu-simulator/bin/release/accel-sim.out
     ├── gpu-simulator/gpgpu-sim/configs/tested-cfgs/SM87_ORIN/gpgpusim.config
@@ -72,12 +73,21 @@ make -C src -j2
         └── *.traceg 또는 *.traceg.xz
 ```
 
+저장소를 받은 뒤 개발 모드로 설치하고 테스트한다.
+
+```bash
+git clone git@github.com:skyp0714/jetson-orin-cache-optimizer.git
+cd jetson-orin-cache-optimizer
+python3 -m pip install -e .
+python3 -m pytest -q
+```
+
 ## 설정과 trace 배치
 
 예시를 복사해 같은 디렉터리에 local 설정을 만들면 상대 경로를 그대로 유지할 수 있다.
 
 ```bash
-cd ~/NSCache_UIUC_Collaboration
+cd ~/jetson-orin-cache-optimizer
 cp cache_optimizer/configs/jetson_orin.example.json \
    cache_optimizer/configs/jetson_orin.local.json
 ```
@@ -163,7 +173,7 @@ Accel-Sim cache access counter는 기본적으로 모든 L1/L2 instance를 합�
 먼저 경로, trace, Orin/NS-Cache baseline mapping, CUDA 및 GPGPU-Sim library를 검증한다. 이 단계에서는 NS-Cache나 Accel-Sim simulation을 실행하지 않는다.
 
 ```bash
-cd ~/NSCache_UIUC_Collaboration
+cd ~/jetson-orin-cache-optimizer
 python3 -m cache_optimizer \
   --config cache_optimizer/configs/jetson_orin.local.json \
   --validate-only

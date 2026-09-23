@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jetson-orin-cache-optimizer"
+version = "0.1.0"
+description = "NS-Cache and Accel-Sim cache technology optimization for Jetson Orin"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Scientific/Engineering",
+]
+
+[project.scripts]
+cache-optimizer = "cache_optimizer.cli:main"
+
+[tool.setuptools]
+packages = ["cache_optimizer"]
+
+[tool.setuptools.package-data]
+cache_optimizer = ["configs/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
