@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import csv
-import re
 from pathlib import Path
 
 from cache_optimizer.models import CacheDesign, Evaluation
@@ -103,11 +102,21 @@ def test_pareto_is_grouped_by_technology_and_objective(tmp_path: Path):
     assert stt.design.id in ids
     assert gain_dominated.design.id not in ids
 
-    tradeoff = (tmp_path / "energy_performance_tradeoff.svg").read_text()
-    assert re.search(
-        rf'<circle[^>]+stroke="#111827"[^>]*><title>{re.escape(gain.design.id)}',
-        tradeoff,
-    )
+    tradeoff = (tmp_path / "power_performance_pareto.svg").read_text()
+    assert "Application performance (speedup vs SRAM)" in tradeoff
+    assert "Cache power vs SRAM" in tradeoff
+    assert gain.design.id in tradeoff
+    assert (tmp_path / "energy_performance_tradeoff.svg").read_text() == tradeoff
+
+
+def test_power_performance_frontier_minimizes_power_and_maximizes_speed():
+    dominated = evaluation(0, 0.8, 0.8, 0.8, power=0.8)
+    low_power = evaluation(1, 0.8, 0.9, 0.8, power=0.6)
+    fast = evaluation(2, 0.8, 1.2, 0.8, power=0.9)
+
+    front = report._power_performance_frontier([dominated, low_power, fast])
+
+    assert front == [low_power, fast]
 
 
 def test_saturation_csv_summary_and_metadata_are_reported(tmp_path: Path):

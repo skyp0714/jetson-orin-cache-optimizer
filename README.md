@@ -235,7 +235,8 @@ python3 -m cache_optimizer \
 자동 생성 그래프는 plotting package가 필요 없는 SVG다.
 
 - `optimization_history.svg`: iteration에 따른 best feasible energy와 speedup. SRAM normalized value 1.0을 점선으로 표시한다.
-- `energy_performance_tradeoff.svg`: normalized cache energy 대 geometric-mean speedup, Pareto frontier와 infeasible 점을 구분한다. SRAM energy/performance bound는 점선 1.0이다.
+- `power_performance_pareto.svg`: feasible gain-cell 후보의 application speedup 대 normalized cache power 2D frontier다. SRAM baseline, 1×/1.5× 및 300 mW budget, A/B/C 대표점을 함께 표시한다.
+- `energy_performance_tradeoff.svg`: 기존 링크 호환을 위해 같은 power/performance 그래프를 저장하는 alias다.
 - `power_constrained_optima.svg`: budget마다 candidate의 observed average cache-array power 대 performance를 표시한다. 수직선은 relative 또는 absolute hard cap이며 `E`, `P`, `K`는 각각 iso-performance 최소 energy, iso-energy 최대 performance, balanced knee 선택점이다.
 - `area_saturation.svg`: unified Pareto 후보가 있으면 이를 우선 사용하고, 없으면 legacy max-performance 후보를 사용해 area 대비 performance와 average cache power를 표시한다. SRAM area/performance/power 1.0을 점선으로 표시한다. performance envelope에서 인접 두 구간 모두 normalized slope가 0.10 미만인 첫 점을 heuristic saturation point로 표시한다. 이는 “10% area 증가당 1% 미만 speedup”에 해당하며, 설계 의사결정에 맞춰 threshold를 별도로 검토해야 한다.
 

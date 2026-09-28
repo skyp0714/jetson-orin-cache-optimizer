@@ -95,7 +95,8 @@ def write_reports(
         "saturation_csv": output_dir / "saturation_points.csv",
         "results_json": output_dir / "results.json",
         "history_svg": output_dir / "optimization_history.svg",
-        "tradeoff_svg": output_dir / "energy_performance_tradeoff.svg",
+        "tradeoff_svg": output_dir / "power_performance_pareto.svg",
+        "legacy_tradeoff_svg": output_dir / "energy_performance_tradeoff.svg",
         "power_svg": output_dir / "power_constrained_optima.svg",
         "saturation_svg": output_dir / "area_saturation.svg",
         "summary_md": output_dir / "summary.md",
@@ -123,7 +124,11 @@ def write_reports(
         encoding="utf-8",
     )
     paths["history_svg"].write_text(_history_svg(values), encoding="utf-8")
-    paths["tradeoff_svg"].write_text(_tradeoff_svg(values), encoding="utf-8")
+    tradeoff_svg = _tradeoff_svg(values, baseline)
+    paths["tradeoff_svg"].write_text(tradeoff_svg, encoding="utf-8")
+    # Keep the historical filename as an alias so existing result links do not
+    # break.  The content now correctly shows performance versus power.
+    paths["legacy_tradeoff_svg"].write_text(tradeoff_svg, encoding="utf-8")
     paths["power_svg"].write_text(
         _power_constrained_svg(
             values,
@@ -590,25 +595,260 @@ def _history_svg(evaluations: list[Evaluation]) -> str:
     return plot.finish()
 
 
-def _tradeoff_svg(evaluations: list[Evaluation]) -> str:
-    plot = _Plot(900, 600, "Cache energy vs application performance")
+def _power_performance_frontier(values: list[Evaluation]) -> list[Evaluation]:
+    """Return the 2D envelope that maximizes speedup and minimizes power."""
+    ordered = sorted(
+        (
+            value
+            for value in values
+            if math.isfinite(value.performance_score)
+            and math.isfinite(value.power_score)
+        ),
+        key=lambda value: (-value.performance_score, value.power_score),
+    )
+    result: list[Evaluation] = []
+    lowest_power = math.inf
+    for value in ordered:
+        if value.power_score < lowest_power - 1e-12:
+            result.append(value)
+            lowest_power = value.power_score
+    return sorted(result, key=lambda value: value.performance_score)
+
+
+def _baseline_cache_power_mw(baseline: dict[str, Any]) -> float | None:
+    applications = baseline.get("applications", {})
+    if not isinstance(applications, dict) or len(applications) != 1:
+        return None
+    only_application = next(iter(applications.values()))
+    if not isinstance(only_application, dict):
+        return None
+    try:
+        power = float(only_application["cache_power_mw"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return power if math.isfinite(power) and power > 0 else None
+
+
+def _tradeoff_svg(
+    evaluations: list[Evaluation], baseline: dict[str, Any] | None = None
+) -> str:
+    """Draw a presentation-oriented power/performance Pareto projection.
+
+    The optimizer's actual Pareto calculation remains four-dimensional.  This
+    figure intentionally projects one technology onto the decision view people
+    use most often: application speedup (right is better) versus normalized
+    average cache power (down is better).  Only strict feasible candidates are
+    used to form the line; explored non-frontier candidates remain faint.
+    """
     relevant = _preferred_pareto_values(evaluations)
-    xs = [e.energy_score for e in relevant]
-    ys = [e.performance_score for e in relevant]
-    sx, sy = _panel(plot, (85, 60, 760, 465), xs, ys, "Normalized cache energy (lower is better)", "Geometric-mean speedup (higher is better)")
-    technologies = sorted({e.design.technology for e in relevant})
-    front_ids = {
-        e.design.id
-        for front in _grouped_pareto_fronts(relevant).values()
-        for e in front
-    }
-    for evaluation in relevant:
-        radius = 6 if evaluation.design.id in front_ids else 4
-        opacity = 1.0 if evaluation.feasible else 0.35
-        stroke = "#111827" if evaluation.design.id in front_ids else "none"
-        plot.add(f'<circle cx="{sx(evaluation.energy_score)}" cy="{sy(evaluation.performance_score)}" r="{radius}" fill="{_color(evaluation.design.technology)}" fill-opacity="{opacity}" stroke="{stroke}" stroke-width="1.2"><title>{html.escape(evaluation.design.id)} | area={evaluation.area_ratio:.3f} | feasible={evaluation.feasible}</title></circle>')
-    _legend(plot, technologies, 100, 565)
-    plot.add('<text x="515" y="569" class="small">outlined = 4D technology/objective Pareto frontier; faded = constraint violation</text>')
+    technologies = sorted({value.design.technology for value in relevant})
+    technology = "gain_cell" if "gain_cell" in technologies else (
+        technologies[0] if technologies else "gain_cell"
+    )
+    feasible = [
+        value
+        for value in relevant
+        if value.design.technology == technology and value.feasible
+        and math.isfinite(value.performance_score)
+        and math.isfinite(value.power_score)
+    ]
+
+    width, height = 1280, 720
+    left, top, plot_width, plot_height = 120.0, 75.0, 1110.0, 555.0
+    baseline = baseline or {}
+    application_names = baseline.get("applications", {})
+    application = (
+        next(iter(application_names))
+        if isinstance(application_names, dict) and len(application_names) == 1
+        else "workload suite"
+    )
+    title = (
+        f"Pareto frontier of feasible {technology.replace('_', '-')} "
+        f"configurations ({application})"
+    )
+    plot = _Plot(width, height, title)
+    plot.parts[1] = (
+        '<style>text{font-family:Inter,Arial,sans-serif;fill:#252525}'
+        '.axis{stroke:#52514e;stroke-width:1.4}.grid{stroke:#e1e0d9;stroke-width:1}'
+        '.budget{stroke:#898781;stroke-width:1.6;stroke-dasharray:2 4}'
+        '.bound{stroke:#898781;stroke-width:1.6;stroke-dasharray:9 3 2 3}'
+        '.label{font-size:18px}.tick{font-size:15px;fill:#52514e}'
+        '.note{font-size:15px;fill:#898781}.annotation{font-size:17px;font-weight:700}'
+        '.title{font-size:24px;font-weight:700}</style>'
+    )
+
+    if not feasible:
+        plot.add(
+            '<text x="640" y="350" text-anchor="middle" class="label">'
+            f'No feasible {html.escape(technology)} candidates were evaluated.</text>'
+        )
+        return plot.finish()
+
+    # The reference view is the SRAM×1.5 design window.  Higher-power points
+    # are still represented by a small off-scale count instead of flattening
+    # the useful part of the frontier.
+    power_view_cap = 1.5
+    frontier_pool = [
+        value for value in feasible if value.power_score <= power_view_cap + 1e-12
+    ] or feasible
+    frontier = _power_performance_frontier(frontier_pool)
+    frontier_ids = {value.design.id for value in frontier}
+    low_performance = min(value.performance_score for value in frontier)
+    high_performance = max(value.performance_score for value in frontier)
+    x_low = max(0.0, low_performance - 0.10)
+    x_high = max(3.65, high_performance + 0.18)
+    y_low, y_high = 0.18, 1.65
+    sx = lambda value: left + (value - x_low) / (x_high - x_low) * plot_width
+    sy = lambda value: top + plot_height - (value - y_low) / (y_high - y_low) * plot_height
+
+    x_ticks = [low_performance, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
+    x_ticks = [
+        value
+        for index, value in enumerate(x_ticks)
+        if x_low <= value <= x_high
+        and not any(abs(value - earlier) < 0.08 for earlier in x_ticks[:index])
+    ]
+    y_ticks = [0.25, 0.5, 1.0, 1.5]
+    for value in x_ticks:
+        px = sx(value)
+        plot.add(
+            f'<line x1="{px}" y1="{top}" x2="{px}" y2="{top + plot_height}" class="grid"/>'
+            f'<text x="{px}" y="{top + plot_height + 28}" text-anchor="middle" class="tick">'
+            f'{_fmt(value, 3)}×</text>'
+        )
+    for value in y_ticks:
+        py = sy(value)
+        plot.add(
+            f'<line x1="{left}" y1="{py}" x2="{left + plot_width}" y2="{py}" class="grid"/>'
+            f'<text x="{left - 12}" y="{py + 5}" text-anchor="end" class="tick">'
+            f'{_fmt(value, 3)}×</text>'
+        )
+
+    plot.add(
+        f'<line x1="{left}" y1="{top + plot_height}" x2="{left + plot_width}" '
+        f'y2="{top + plot_height}" class="axis"/>'
+        f'<line x1="{left}" y1="{top}" x2="{left}" y2="{top + plot_height}" class="axis"/>'
+    )
+    for ratio, label, label_y in (
+        (1.0, "SRAM×1 budget", -8),
+        (1.5, "SRAM×1.5", -8),
+    ):
+        py = sy(ratio)
+        plot.add(
+            f'<line x1="{left}" y1="{py}" x2="{left + plot_width}" y2="{py}" class="budget"/>'
+            f'<text x="{left + plot_width - 12}" y="{py + label_y}" text-anchor="end" class="note">'
+            f'{html.escape(label)}</text>'
+        )
+    baseline_power = _baseline_cache_power_mw(baseline)
+    if baseline_power is not None:
+        ratio_300mw = 300.0 / baseline_power
+        if y_low <= ratio_300mw <= y_high:
+            py = sy(ratio_300mw)
+            plot.add(
+                f'<line x1="{left}" y1="{py}" x2="{left + plot_width}" y2="{py}" class="budget"/>'
+                f'<text x="{sx(1.78)}" y="{py + 24}" text-anchor="middle" class="note">300 mW</text>'
+            )
+    bound_x = sx(low_performance)
+    performance_loss = max(0.0, (1.0 - low_performance) * 100.0)
+    plot.add(
+        f'<line x1="{bound_x}" y1="{top}" x2="{bound_x}" y2="{top + plot_height}" class="bound"/>'
+        f'<text x="{bound_x - 8}" y="{top + 200}" text-anchor="middle" class="note" '
+        f'transform="rotate(-90 {bound_x - 8} {top + 200})">'
+        f'low-performance bound (−{performance_loss:.0f}%)</text>'
+    )
+
+    orange = "#ef642f"
+    light_orange = "#f8cdbc"
+    frontier_line = "#f7a889"
+    visible = [value for value in feasible if value.power_score <= y_high]
+    for value in visible:
+        is_frontier = value.design.id in frontier_ids
+        radius = 7.0 if is_frontier else 5.0
+        fill = orange if is_frontier else light_orange
+        opacity = 1.0 if is_frontier else 0.62
+        plot.add(
+            f'<circle cx="{sx(value.performance_score)}" cy="{sy(value.power_score)}" '
+            f'r="{radius}" fill="{fill}" fill-opacity="{opacity}" stroke="none"><title>'
+            f'{html.escape(value.design.id)} | speedup={value.performance_score:.4f} | '
+            f'power={value.power_score:.4f}× | area={value.area_ratio:.4f}×'
+            '</title></circle>'
+        )
+    if frontier:
+        path = " ".join(
+            ("M" if index == 0 else "L")
+            + f" {sx(value.performance_score):.2f} {sy(value.power_score):.2f}"
+            for index, value in enumerate(frontier)
+        )
+        plot.add(
+            f'<path d="{path}" fill="none" stroke="{frontier_line}" stroke-width="3"/>'
+        )
+        for value in frontier:
+            plot.add(
+                f'<circle cx="{sx(value.performance_score)}" cy="{sy(value.power_score)}" '
+                f'r="7" fill="{orange}"/>'
+            )
+
+    # The three callouts match the decision points used in the report: closest
+    # to SRAM performance, minimum power, and fastest point within SRAM×1.5.
+    point_a = min(frontier, key=lambda value: abs(value.performance_score - 1.0))
+    point_b = min(frontier, key=lambda value: value.power_score)
+    point_c = max(frontier, key=lambda value: value.performance_score)
+
+    def callout(
+        value: Evaluation, text: str, text_x: float, text_y: float
+    ) -> None:
+        px, py = sx(value.performance_score), sy(value.power_score)
+        plot.add(
+            f'<circle cx="{px}" cy="{py}" r="14" fill="none" stroke="#111111" stroke-width="2.4"/>'
+            f'<line x1="{px + (10 if text_x >= px else -10)}" y1="{py}" '
+            f'x2="{text_x}" y2="{text_y - 6}" stroke="#898781" stroke-width="1.4"/>'
+            f'<text x="{text_x}" y="{text_y}" class="annotation">{html.escape(text)}</text>'
+        )
+
+    callout(
+        point_a,
+        f"A — same speed, −{(1.0 - point_a.power_score) * 100:.0f}% power",
+        sx(1.30),
+        sy(0.50),
+    )
+    callout(
+        point_b,
+        f"B — −{(1.0 - point_b.power_score) * 100:.0f}% power, "
+        f"−{(1.0 - point_b.performance_score) * 100:.0f}% speed",
+        sx(1.03),
+        sy(0.25),
+    )
+    callout(
+        point_c,
+        f"C — {point_c.performance_score:.2f}× speed, {point_c.power_score:.2f}× power",
+        sx(2.25),
+        sy(1.00),
+    )
+
+    baseline_x, baseline_y = sx(1.0), sy(1.0)
+    plot.add(
+        f'<rect x="{baseline_x - 8}" y="{baseline_y - 8}" width="16" height="16" '
+        'fill="#2a78d6" stroke="#111111" stroke-width="1.4"/>'
+        f'<text x="{baseline_x + 20}" y="{baseline_y - 12}" '
+        'style="font-size:18px;font-weight:700;fill:#2a78d6">SRAM baseline</text>'
+    )
+    off_scale = sum(value.power_score > y_high for value in feasible)
+    if off_scale:
+        plot.add(
+            f'<text x="{left + 14}" y="{top + 22}" class="note">'
+            f'{off_scale} higher-power feasible configurations are off-scale</text>'
+        )
+    plot.add(
+        f'<text x="{left + plot_width / 2}" y="{height - 28}" text-anchor="middle" class="label">'
+        'Application performance (speedup vs SRAM) → better</text>'
+        f'<text x="30" y="{top + plot_height / 2}" text-anchor="middle" class="label" '
+        f'transform="rotate(-90 30 {top + plot_height / 2})">'
+        'Cache power vs SRAM → lower is better</text>'
+        f'<circle cx="{left + plot_width - 250}" cy="{top + plot_height - 48}" r="7" fill="{orange}"/>'
+        f'<text x="{left + plot_width - 232}" y="{top + plot_height - 42}" class="label">Pareto-optimal</text>'
+        f'<circle cx="{left + plot_width - 250}" cy="{top + plot_height - 18}" r="6" fill="{light_orange}"/>'
+        f'<text x="{left + plot_width - 232}" y="{top + plot_height - 12}" class="label">explored, non-selected</text>'
+    )
     return plot.finish()
 
 
@@ -1092,7 +1332,8 @@ The knee is reported independently for each technology from the unified Pareto s
 - `power_constrained_optima.csv`: per-budget energy, performance, and knee selections
 - `saturation_points.csv`: per-technology saturation configuration and metrics
 - `optimization_history.svg`: iterative convergence
-- `energy_performance_tradeoff.svg`: energy/performance Pareto view
+- `power_performance_pareto.svg`: feasible gain-cell performance/power Pareto view with SRAM budgets and A/B/C operating points
+- `energy_performance_tradeoff.svg`: compatibility alias of the performance/power Pareto view
 - `power_constrained_optima.svg`: power/performance panels with budget lines and E/P/K selections
 - `area_saturation.svg`: performance/power vs area with SRAM dashed bounds and detected knee
 - `results.json`: complete machine-readable provenance and results
@@ -1236,7 +1477,7 @@ def _html_report(
 <h2>Warnings</h2><ul>{html_messages(metadata.get('warnings', []))}</ul>
 <h2>Errors</h2><ul>{html_messages(metadata.get('errors', []))}</ul>
 <h2>Optimization history</h2><img src="optimization_history.svg" alt="Optimization history">
-<h2>Energy/performance tradeoff</h2><img src="energy_performance_tradeoff.svg" alt="Energy performance tradeoff">
+<h2>Gain-cell power/performance Pareto frontier</h2><img src="power_performance_pareto.svg" alt="Gain-cell power performance Pareto frontier">
 <h2>Power-constrained optima</h2><img src="power_constrained_optima.svg" alt="Power-constrained Pareto selections">
 <h2>Area saturation</h2><img src="area_saturation.svg" alt="Area saturation">
 <div class="note"><strong>Interpretation boundary.</strong> Performance is GPU trace runtime from <code>gpu_tot_sim_cycle</code>, not CPU-inclusive wall time. Energy is cache-array energy from candidate-specific access counts, leakage, and configured refresh. Power is average cache-array power over the simulated trace; it is not Jetson module power, whole-GPU power, or TDP. See <a href="results.json">results.json</a> for provenance and exact assumptions.</div>
