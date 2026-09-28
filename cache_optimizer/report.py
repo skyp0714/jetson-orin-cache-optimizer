@@ -635,7 +635,8 @@ def _tradeoff_svg(
     """Draw a presentation-oriented power/performance Pareto projection.
 
     The optimizer's actual Pareto calculation remains four-dimensional.  This
-    figure intentionally projects one technology onto the decision view people
+    figure intentionally projects the gain-cell and re-tuned-SRAM technologies
+    onto the decision view people
     use most often: application speedup (right is better) versus normalized
     average cache power (down is better).  Only strict feasible candidates are
     used to form the line; explored non-frontier candidates remain faint.
@@ -652,6 +653,13 @@ def _tradeoff_svg(
         and math.isfinite(value.performance_score)
         and math.isfinite(value.power_score)
     ]
+    sram_feasible = [
+        value
+        for value in relevant
+        if value.design.technology == "sram_tuned" and value.feasible
+        and math.isfinite(value.performance_score)
+        and math.isfinite(value.power_score)
+    ]
 
     width, height = 1280, 720
     left, top, plot_width, plot_height = 120.0, 75.0, 1110.0, 555.0
@@ -663,7 +671,9 @@ def _tradeoff_svg(
         else "workload suite"
     )
     title = (
-        f"Pareto frontier of feasible {technology.replace('_', '-')} "
+        f"Power–performance Pareto frontiers ({application})"
+        if sram_feasible
+        else f"Pareto frontier of feasible {technology.replace('_', '-')} "
         f"configurations ({application})"
     )
     plot = _Plot(width, height, title)
@@ -693,6 +703,12 @@ def _tradeoff_svg(
     ] or feasible
     frontier = _power_performance_frontier(frontier_pool)
     frontier_ids = {value.design.id for value in frontier}
+    sram_frontier = [
+        value
+        for value in _power_performance_frontier(sram_feasible)
+        if value.power_score <= 1.65
+    ]
+    sram_frontier_ids = {value.design.id for value in sram_frontier}
     low_performance = min(value.performance_score for value in frontier)
     high_performance = max(value.performance_score for value in frontier)
     x_low = max(0.0, low_performance - 0.10)
@@ -760,6 +776,39 @@ def _tradeoff_svg(
     orange = "#ef642f"
     light_orange = "#f8cdbc"
     frontier_line = "#f7a889"
+    sram_blue = "#72a9e5"
+    light_sram_blue = "#c9ddf4"
+
+    # Re-tuned SRAM is a secondary reference: draw it first, thinner, and at
+    # lower opacity so the gain-cell frontier remains the visual focus.
+    visible_sram = [value for value in sram_feasible if value.power_score <= y_high]
+    for value in visible_sram:
+        is_frontier = value.design.id in sram_frontier_ids
+        plot.add(
+            f'<circle cx="{sx(value.performance_score)}" cy="{sy(value.power_score)}" '
+            f'r="{5.5 if is_frontier else 4.5}" fill="{light_sram_blue}" '
+            f'fill-opacity="{0.70 if is_frontier else 0.38}" stroke="none"><title>'
+            f'{html.escape(value.design.id)} | speedup={value.performance_score:.4f} | '
+            f'power={value.power_score:.4f}× | area={value.area_ratio:.4f}×'
+            '</title></circle>'
+        )
+    if sram_frontier:
+        sram_path = " ".join(
+            ("M" if index == 0 else "L")
+            + f" {sx(value.performance_score):.2f} {sy(value.power_score):.2f}"
+            for index, value in enumerate(sram_frontier)
+        )
+        plot.add(
+            f'<path d="{sram_path}" fill="none" stroke="{sram_blue}" '
+            'stroke-opacity="0.62" stroke-width="2.4"/>'
+        )
+        for value in sram_frontier:
+            plot.add(
+                f'<circle cx="{sx(value.performance_score)}" cy="{sy(value.power_score)}" '
+                f'r="6" fill="white" fill-opacity="0.82" stroke="{sram_blue}" '
+                'stroke-opacity="0.72" stroke-width="2.2"/>'
+            )
+
     visible = [value for value in feasible if value.power_score <= y_high]
     for value in visible:
         is_frontier = value.design.id in frontier_ids
@@ -828,11 +877,13 @@ def _tradeoff_svg(
     baseline_x, baseline_y = sx(1.0), sy(1.0)
     plot.add(
         f'<rect x="{baseline_x - 8}" y="{baseline_y - 8}" width="16" height="16" '
-        'fill="#2a78d6" stroke="#111111" stroke-width="1.4"/>'
+        'fill="#2369b3" stroke="#111111" stroke-width="1.4"/>'
         f'<text x="{baseline_x + 20}" y="{baseline_y - 12}" '
-        'style="font-size:18px;font-weight:700;fill:#2a78d6">SRAM baseline</text>'
+        'style="font-size:18px;font-weight:700;fill:#2369b3">SRAM baseline</text>'
     )
-    off_scale = sum(value.power_score > y_high for value in feasible)
+    off_scale = sum(
+        value.power_score > y_high for value in feasible + sram_feasible
+    )
     if off_scale:
         plot.add(
             f'<text x="{left + 14}" y="{top + 22}" class="note">'
@@ -844,8 +895,10 @@ def _tradeoff_svg(
         f'<text x="30" y="{top + plot_height / 2}" text-anchor="middle" class="label" '
         f'transform="rotate(-90 30 {top + plot_height / 2})">'
         'Cache power vs SRAM → lower is better</text>'
-        f'<circle cx="{left + plot_width - 250}" cy="{top + plot_height - 48}" r="7" fill="{orange}"/>'
-        f'<text x="{left + plot_width - 232}" y="{top + plot_height - 42}" class="label">Pareto-optimal</text>'
+        f'<circle cx="{left + plot_width - 250}" cy="{top + plot_height - 78}" r="7" fill="{orange}"/>'
+        f'<text x="{left + plot_width - 232}" y="{top + plot_height - 72}" class="label">Gain-cell frontier</text>'
+        f'<circle cx="{left + plot_width - 250}" cy="{top + plot_height - 48}" r="6" fill="white" stroke="{sram_blue}" stroke-width="2.2"/>'
+        f'<text x="{left + plot_width - 232}" y="{top + plot_height - 42}" class="label">SRAM-tuned frontier</text>'
         f'<circle cx="{left + plot_width - 250}" cy="{top + plot_height - 18}" r="6" fill="{light_orange}"/>'
         f'<text x="{left + plot_width - 232}" y="{top + plot_height - 12}" class="label">explored, non-selected</text>'
     )

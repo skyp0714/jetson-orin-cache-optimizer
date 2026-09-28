@@ -87,11 +87,12 @@ def test_pareto_is_grouped_by_technology_and_objective(tmp_path: Path):
     # technology/objective search and must remain on that group's frontier.
     gain = evaluation(0, 0.9, 1.0, 0.9, technology="gain_cell")
     stt = evaluation(0, 0.8, 1.1, 0.8, technology="stt_mram")
+    sram = evaluation(0, 0.85, 1.05, 0.85, technology="sram_tuned", power=0.7)
     gain_dominated = evaluation(1, 1.0, 0.9, 1.0, technology="gain_cell")
 
     write_reports(
         tmp_path,
-        [gain, stt, gain_dominated],
+        [gain, stt, sram, gain_dominated],
         baseline={"area_mm2": 1.2},
         metadata={"status": "test"},
     )
@@ -106,6 +107,8 @@ def test_pareto_is_grouped_by_technology_and_objective(tmp_path: Path):
     assert "Application performance (speedup vs SRAM)" in tradeoff
     assert "Cache power vs SRAM" in tradeoff
     assert gain.design.id in tradeoff
+    assert sram.design.id in tradeoff
+    assert "SRAM-tuned frontier" in tradeoff
     assert (tmp_path / "energy_performance_tradeoff.svg").read_text() == tradeoff
 
 
