@@ -662,29 +662,24 @@ def _tradeoff_svg(
     ]
 
     width, height = 1280, 720
-    left, top, plot_width, plot_height = 120.0, 75.0, 1110.0, 555.0
+    left, top, plot_width, plot_height = 120.0, 42.0, 1110.0, 588.0
     baseline = baseline or {}
-    application_names = baseline.get("applications", {})
-    application = (
-        next(iter(application_names))
-        if isinstance(application_names, dict) and len(application_names) == 1
-        else "workload suite"
-    )
-    title = (
-        f"Power–performance Pareto frontiers ({application})"
-        if sram_feasible
-        else f"Pareto frontier of feasible {technology.replace('_', '-')} "
-        f"configurations ({application})"
-    )
-    plot = _Plot(width, height, title)
+    plot = _Plot(width, height, "")
     plot.parts[1] = (
         '<style>text{font-family:Inter,Arial,sans-serif;fill:#252525}'
         '.axis{stroke:#52514e;stroke-width:1.4}.grid{stroke:#e1e0d9;stroke-width:1}'
         '.budget{stroke:#898781;stroke-width:1.6;stroke-dasharray:2 4}'
         '.bound{stroke:#898781;stroke-width:1.6;stroke-dasharray:9 3 2 3}'
-        '.label{font-size:18px}.tick{font-size:15px;fill:#52514e}'
-        '.note{font-size:15px;fill:#898781}.annotation{font-size:17px;font-weight:700}'
-        '.title{font-size:24px;font-weight:700}</style>'
+        '.label{font-size:20px}.tick{font-size:17px;fill:#52514e}'
+        '.note{font-size:17px;fill:#898781}.annotation{font-size:19px;font-weight:700}'
+        '.direction{font-size:17px;font-weight:700;fill:#6f6d68}</style>'
+    )
+    plot.parts[2] = '<rect width="100%" height="100%" fill="white"/>'
+    plot.add(
+        '<defs><marker id="direction-arrow" markerWidth="10" markerHeight="10" '
+        'refX="8" refY="5" orient="auto" markerUnits="strokeWidth">'
+        '<path d="M 0 0 L 10 5 L 0 10 z" fill="#77746e"/>'
+        '</marker></defs>'
     )
 
     if not feasible:
@@ -773,6 +768,20 @@ def _tradeoff_svg(
         f'low-performance bound (−{performance_loss:.0f}%)</text>'
     )
 
+    # Show the combined optimization direction explicitly: performance improves
+    # to the right while power improves downward.
+    direction_x1, direction_y1 = sx(2.18), sy(0.82)
+    direction_x2, direction_y2 = sx(2.78), sy(0.55)
+    plot.add(
+        f'<text x="{direction_x1 - 10}" y="{direction_y1 - 12}" '
+        'text-anchor="end" class="direction">worse</text>'
+        f'<line x1="{direction_x1}" y1="{direction_y1}" '
+        f'x2="{direction_x2}" y2="{direction_y2}" stroke="#77746e" '
+        'stroke-width="2.2" marker-end="url(#direction-arrow)"/>'
+        f'<text x="{direction_x2 + 13}" y="{direction_y2 + 6}" '
+        'class="direction">better</text>'
+    )
+
     orange = "#ef642f"
     light_orange = "#f8cdbc"
     frontier_line = "#f7a889"
@@ -786,7 +795,7 @@ def _tradeoff_svg(
         is_frontier = value.design.id in sram_frontier_ids
         plot.add(
             f'<circle cx="{sx(value.performance_score)}" cy="{sy(value.power_score)}" '
-            f'r="{5.5 if is_frontier else 4.5}" fill="{light_sram_blue}" '
+            f'r="{6.5 if is_frontier else 5.5}" fill="{light_sram_blue}" '
             f'fill-opacity="{0.70 if is_frontier else 0.38}" stroke="none"><title>'
             f'{html.escape(value.design.id)} | speedup={value.performance_score:.4f} | '
             f'power={value.power_score:.4f}× | area={value.area_ratio:.4f}×'
@@ -805,14 +814,14 @@ def _tradeoff_svg(
         for value in sram_frontier:
             plot.add(
                 f'<circle cx="{sx(value.performance_score)}" cy="{sy(value.power_score)}" '
-                f'r="6" fill="white" fill-opacity="0.82" stroke="{sram_blue}" '
-                'stroke-opacity="0.72" stroke-width="2.2"/>'
+                f'r="7" fill="white" fill-opacity="0.82" stroke="{sram_blue}" '
+                'stroke-opacity="0.72" stroke-width="2.4"/>'
             )
 
     visible = [value for value in feasible if value.power_score <= y_high]
     for value in visible:
         is_frontier = value.design.id in frontier_ids
-        radius = 7.0 if is_frontier else 5.0
+        radius = 8.0 if is_frontier else 6.0
         fill = orange if is_frontier else light_orange
         opacity = 1.0 if is_frontier else 0.62
         plot.add(
@@ -834,7 +843,7 @@ def _tradeoff_svg(
         for value in frontier:
             plot.add(
                 f'<circle cx="{sx(value.performance_score)}" cy="{sy(value.power_score)}" '
-                f'r="7" fill="{orange}"/>'
+                f'r="8" fill="{orange}"/>'
             )
 
     # The three callouts match the decision points used in the report: closest
@@ -848,7 +857,7 @@ def _tradeoff_svg(
     ) -> None:
         px, py = sx(value.performance_score), sy(value.power_score)
         plot.add(
-            f'<circle cx="{px}" cy="{py}" r="14" fill="none" stroke="#111111" stroke-width="2.4"/>'
+            f'<circle cx="{px}" cy="{py}" r="16" fill="none" stroke="#111111" stroke-width="2.6"/>'
             f'<line x1="{px + (10 if text_x >= px else -10)}" y1="{py}" '
             f'x2="{text_x}" y2="{text_y - 6}" stroke="#898781" stroke-width="1.4"/>'
             f'<text x="{text_x}" y="{text_y}" class="annotation">{html.escape(text)}</text>'
@@ -876,10 +885,10 @@ def _tradeoff_svg(
 
     baseline_x, baseline_y = sx(1.0), sy(1.0)
     plot.add(
-        f'<rect x="{baseline_x - 8}" y="{baseline_y - 8}" width="16" height="16" '
+        f'<rect x="{baseline_x - 9}" y="{baseline_y - 9}" width="18" height="18" '
         'fill="#2369b3" stroke="#111111" stroke-width="1.4"/>'
         f'<text x="{baseline_x + 20}" y="{baseline_y - 12}" '
-        'style="font-size:18px;font-weight:700;fill:#2369b3">SRAM baseline</text>'
+        'style="font-size:20px;font-weight:700;fill:#2369b3">SRAM baseline</text>'
     )
     off_scale = sum(
         value.power_score > y_high for value in feasible + sram_feasible
@@ -891,16 +900,16 @@ def _tradeoff_svg(
         )
     plot.add(
         f'<text x="{left + plot_width / 2}" y="{height - 28}" text-anchor="middle" class="label">'
-        'Application performance (speedup vs SRAM) → better</text>'
+        'Application performance (speedup vs SRAM)</text>'
         f'<text x="30" y="{top + plot_height / 2}" text-anchor="middle" class="label" '
         f'transform="rotate(-90 30 {top + plot_height / 2})">'
-        'Cache power vs SRAM → lower is better</text>'
-        f'<circle cx="{left + plot_width - 250}" cy="{top + plot_height - 78}" r="7" fill="{orange}"/>'
+        'Cache power vs SRAM</text>'
+        f'<circle cx="{left + plot_width - 250}" cy="{top + plot_height - 82}" r="8" fill="{orange}"/>'
         f'<text x="{left + plot_width - 232}" y="{top + plot_height - 72}" class="label">Gain-cell frontier</text>'
-        f'<circle cx="{left + plot_width - 250}" cy="{top + plot_height - 48}" r="6" fill="white" stroke="{sram_blue}" stroke-width="2.2"/>'
-        f'<text x="{left + plot_width - 232}" y="{top + plot_height - 42}" class="label">SRAM-tuned frontier</text>'
-        f'<circle cx="{left + plot_width - 250}" cy="{top + plot_height - 18}" r="6" fill="{light_orange}"/>'
-        f'<text x="{left + plot_width - 232}" y="{top + plot_height - 12}" class="label">explored, non-selected</text>'
+        f'<circle cx="{left + plot_width - 250}" cy="{top + plot_height - 48}" r="7" fill="white" stroke="{sram_blue}" stroke-width="2.4"/>'
+        f'<text x="{left + plot_width - 232}" y="{top + plot_height - 38}" class="label">SRAM-tuned frontier</text>'
+        f'<circle cx="{left + plot_width - 250}" cy="{top + plot_height - 14}" r="7" fill="{light_orange}"/>'
+        f'<text x="{left + plot_width - 232}" y="{top + plot_height - 4}" class="label">explored, non-selected</text>'
     )
     return plot.finish()
 

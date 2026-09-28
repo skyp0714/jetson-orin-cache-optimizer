@@ -109,6 +109,10 @@ def test_pareto_is_grouped_by_technology_and_objective(tmp_path: Path):
     assert gain.design.id in tradeoff
     assert sram.design.id in tradeoff
     assert "SRAM-tuned frontier" in tradeoff
+    assert 'class="title">' not in tradeoff
+    assert 'marker-end="url(#direction-arrow)"' in tradeoff
+    assert '>worse</text>' in tradeoff
+    assert '>better</text>' in tradeoff
     assert (tmp_path / "energy_performance_tradeoff.svg").read_text() == tradeoff
 
 
