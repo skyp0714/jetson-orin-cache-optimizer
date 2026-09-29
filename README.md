@@ -281,6 +281,14 @@ python -m cache_optimizer.memory_power results/<run-directory>
 
 이 post-processor는 Accel-Sim 로그의 `total dram reads/writes`, workload runtime, 그리고 명시적인 read/write energy 및 background-power 가정을 사용해 `estimated_memory_power.csv`, `estimated_memory_power_optima.csv`, `estimated_memory_power_model.json`, `power_performance_pareto_cache_plus_dram.svg`를 만든다. 기본 nominal 가정은 128 B/request, 4.5 nJ/read, 4.0 nJ/write, 500 mW background이며 low/high sensitivity 값도 CSV에 함께 기록된다. 이는 vendor-calibrated Orin LPDDR5 또는 DRAMPower 결과가 아니므로 절대 전력 검증값으로 사용하면 안 된다.
 
+NS-Cache의 array-only cache power를 GPU cache-subsystem 범위로 보정하려면 다음을 실행한다.
+
+```bash
+python -m cache_optimizer.cache_subsystem_power results/<run-directory>
+```
+
+이 post-processor는 AccelWattch MICRO'21의 GV100 hardware-counter validation artifact에서 L2CP를 L2 access와 kernel runtime으로 정규화한 636/736/982 pJ-access (Q1/median/Q3) 앵커를 사용한다. NS-Cache array energy는 그대로 두고, SRAM baseline의 L2 array dynamic energy를 초과하는 부분만 technology-independent L2 controller/NoC overhead로 모든 후보에 더한다. 출력은 `estimated_cache_subsystem_power.csv`와 `estimated_cache_subsystem_power_model.json`이다. 이는 Orin cache rail 실측 보정이 아니라 GV100에서 이전한 sensitivity envelope이므로, 절대값은 low/nominal/high 범위로 보고해야 한다.
+
 Total area는 `L1 area × l1_instances + L2 area × l2_instances`다. 예시 Orin 설정은 L1 16개, L2 modeled instance 1개를 사용한다. Dynamic access counters가 `all_instances`이면 이미 aggregate이므로 16을 다시 곱하지 않지만, area/leakage/refresh에는 instance 수를 곱한다.
 
 NS-Cache latency를 calibrated Accel-Sim latency로 그대로 치환하지 않는다. 후보 latency cycle은 다음 relative-delta mapping을 사용한다.
